@@ -48,74 +48,26 @@ open import Data.Vec
 ⇓⟦_⟧ (:constant c) ρ = const c
 ⇓⟦_⟧ (l /\ r) ρ  = if (head ρ) (⇓⟦ l ⟧ (tail ρ)) (⇓⟦ r ⟧ (tail ρ))
 
-bool-bin : ∀ (op : BinOp) → Bool → Bool → Bool
-bool-bin And = Data.Bool._∧_
-bool-bin Or = Data.Bool._∨_
-
-bool-lit : Bool → Bool → Bool
-bool-lit true x = x
-bool-lit false x = Data.Bool.not x
-
-bool-bin-sem : ∀ op a b → bin op (const a) (const b) ≈ const (bool-bin op a b)
-bool-bin-sem And true b = let open Solver in solve 1 (λ b → :⊤ :∧ b ⊜ b) refl _
-bool-bin-sem And false b = let open Solver in solve 1 (λ b → :⊥ :∧ b ⊜ :⊥) refl _
-bool-bin-sem Or true b = let open Solver in solve 1 (λ b → :⊤ :∨ b ⊜ :⊤) refl _
-bool-bin-sem Or false b = let open Solver in solve 1 (λ b → :⊥ :∨ b ⊜ b) refl _
-
-bool-lit-sem : ∀ neg a → lit neg (const a) ≈ const (bool-lit neg a)
-bool-lit-sem true a = refl
-bool-lit-sem false a = bool-neg-sem a
-
 if-cong : ∀ {a₁ b₁ c₁ a₂ b₂ c₂} → c₁ ≈ c₂ → a₁ ≈ a₂ → b₁ ≈ b₂ → if c₁ a₁ b₁ ≈ if c₂ a₂ b₂
 if-cong c-eq a-eq b-eq = ∨-cong (∧-cong c-eq a-eq) (∧-cong (¬-cong c-eq) b-eq)
 
 open import Data.Vec
-
 import Relation.Binary.EqReasoning as EqReasoning
-
-bool-apply : (op : Op) → Inputs op Bool → Bool
-bool-apply (:constant c) inps = c
-bool-apply (:unary neg) inps = bool-lit neg (inps (# 0))
-bool-apply (:binary op) inps = bool-bin op (inps (# 0)) (inps (# 1))
-
-bool-apply-sem : ∀ (op : Op) → (inp : Inputs op Bool) → apply op (const ∘ inp) ≈ const (bool-apply op inp)
-bool-apply-sem (:constant c) inp = refl
-bool-apply-sem (:unary neg) inp = bool-lit-sem neg _
-bool-apply-sem (:binary op) inp = bool-bin-sem op _ _
-
-eval'' : (e : Expr (Fin 0)) → ∃ (λ c → (∀ {ρ} → ⟦ e ⟧ ρ ≈ const c))
-eval'' (var ())
-eval'' (:op op params) =
-  bool-apply op (proj₁ ∘ rec) ,
-  trans (apply-cong op (λ i → proj₂ (rec i))) (bool-apply-sem op _) where
-   rec = (λ x → eval'' (params x))
-
 import Data.Empty
 
 wtf-no-constants : (e : Expr (Fin 0)) → (No-Constants e → Data.Empty.⊥)
-wtf-no-constants (BooleanExpr.:op (BooleanExpr.:constant c) inp) bt = bt
-wtf-no-constants (BooleanExpr.:op (BooleanExpr.:unary neg) inp) bt = wtf-no-constants (inp (# 0)) (bt (# 0))
-wtf-no-constants (BooleanExpr.:op (BooleanExpr.:binary op) inp) bt = wtf-no-constants (inp (# 0)) (bt (# 0))
-wtf-no-constants (BooleanExpr.var ()) bt
+wtf-no-constants (:op (:constant c) inp) bt = bt
+wtf-no-constants (:op (:unary neg) inp) bt = wtf-no-constants (inp (# 0)) (bt (# 0))
+wtf-no-constants (:op (:binary op) inp) bt = wtf-no-constants (inp (# 0)) (bt (# 0))
+wtf-no-constants (var ()) bt
 
-eval''' : (e : Expr (Fin 0)) → ∃ (λ c → (∀ {ρ} → ⟦ e ⟧ ρ ≈ const c))
-eval''' e with constantPropagation e | constants-propagated e
-eval''' e | BooleanExpr.:op (BooleanExpr.:constant c) y , prf | proped = c , prf
-eval''' e | BooleanExpr.:op (BooleanExpr.:unary neg) y , prf | proped = Data.Empty.⊥-elim (wtf-no-constants (y zero) (proped zero))
-eval''' e | BooleanExpr.:op (BooleanExpr.:binary op) y , prf | proped = Data.Empty.⊥-elim (wtf-no-constants (y zero) (proped zero))
-eval''' e | BooleanExpr.var () , prf | proped
-
-{-eval : (e : Expr (Fin 0)) → ∃ (λ c → (∀ {ρ} → ⟦ e ⟧ ρ ≈ const c))
-eval (:op (:binary op) params) with eval (params (# 0)) | eval (params (# 1))
-... | a' , a-proof | b' , b-proof = (bool-bin op a' b') , (trans (bin-cong op a-proof b-proof) (bool-bin-sem op a' b'))
-eval (:op (:unary true) a) = eval (a (# 0))
-eval (:op (:unary false) a) with eval (a (# 0))
-... | a' , a-proof = Data.Bool.not a' , trans (¬-cong a-proof) (bool-neg-sem a')
-eval (:op (:constant y) _) = y , refl
-eval (var ()) -}
+eval : (e : Expr (Fin 0)) → ∃ (λ c → (∀ {ρ} → ⟦ e ⟧ ρ ≈ const c))
+eval e with constantPropagation e
+... | :constant c , prf = c , prf
+... | :no-constants x noo , _ = Data.Empty.⊥-elim (wtf-no-constants x noo)
 
 normalise : ∀ {n} → (f : Expr (Fin n)) → ∃ (λ nf → ∀ {ρ} → ⟦ f ⟧ ρ ≈ ⇓⟦ nf ⟧ ρ)
-normalise {zero} f with eval'' f
+normalise {zero} f with eval f
 ... | f-val , proof = (:constant f-val) , proof
 normalise {suc n} f with shannon-expand f
 ... | f₁ , f₀ , snannon-proof with normalise f₁ | normalise f₀
