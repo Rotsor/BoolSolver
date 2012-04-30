@@ -1,0 +1,3 @@
+Solver of equalities for Boolean Algebra in Agda. Automatically proves equal formulae equal. Does not use Agda reflection.
+
+
