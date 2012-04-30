@@ -98,6 +98,9 @@ module Dummy (Inp : Input) where
   import ConstantPropagation
   open  ConstantPropagation Alg
 
+  import BooleanExpr
+  open  BooleanExpr Alg
+
   open Solver
 
   theorem3 : ∀ x y z → (x ∨ (z ∧ ⊥)) ∨ (y ∧ ⊤) ≈ x ∨ y

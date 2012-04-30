@@ -31,15 +31,15 @@ open CommutativeSemiring ∧-∨-commutativeSemiring using ()
 import BooleanExpr
 open BooleanExpr Alg
 
-constBin : (op : Op) → ∀ {n} → (a : Expr (Fin n)) → (c : Bool) → ∃ (_≛_ (:bin op a (:const c)))
+constBin : (op : BinOp) → ∀ {n} → (a : Expr (Fin n)) → (c : Bool) → ∃ (_≛_ (:bin op a (:const c)))
 constBin And x true = x , proj₂ ∧-identity _
 constBin And _ false = :const false , proj₂ ∧-zero _
 constBin Or _ true = :const true ,  proj₂ ∨-zero _
 constBin Or x false = x , proj₂ ∨-identity _
 
-cleverBin : ∀ {n} → (op : Op) → (a b : Expr (Fin n)) → ∃ (_≛_ (:bin op a b))
-cleverBin op a (:const b) = constBin op a b
-cleverBin op (:const a) b with constBin op b a
+cleverBin : ∀ {n} → (op : BinOp) → (a b : Expr (Fin n)) → ∃ (_≛_ (:bin op a b))
+cleverBin op a (:op (:constant b) _) = constBin op a b
+cleverBin op (:op (:constant a) _) b with constBin op b a
 ... | res , proof = res , trans (bin-comm op (const a) (⟦ b ⟧ _)) proof
 cleverBin op a b = :bin op a b , refl
 
@@ -48,13 +48,13 @@ const-neg-const true = ¬⊤=⊥
 const-neg-const false = ¬⊥=⊤
 
 clever¬ : ∀ {n} → (x : Expr (Fin n)) → ∃ (_≛_ (:¬ x))
-clever¬ (:const c) = :const (Data.Bool.not c) , const-neg-const c
+clever¬ (:op (:constant c) _) = :const (Data.Bool.not c) , const-neg-const c
 clever¬ x = :¬ x , refl
 
 constantPropagation : ∀ {n} → (a : Expr (Fin n)) → ∃ (_≛_ a)
-constantPropagation (:bin op a b) with constantPropagation a | constantPropagation b 
+constantPropagation (:op (:binary op) ab) with constantPropagation (ab (# 0)) | constantPropagation (ab (# 1))
 ... | ar , a-proof | br , b-proof = Product.map id (λ pr {ρ} → trans (bin-cong op a-proof b-proof) (pr {ρ})) (cleverBin op ar br)
-constantPropagation (:¬ a) with constantPropagation a
+constantPropagation (:op (:unary false) a) with constantPropagation (a (# 0))
 ... | ar , a-proof = Product.map id (λ prf {ρ} → trans (¬-cong (a-proof {ρ})) (prf {ρ})) (clever¬ ar)
 constantPropagation x = x , refl
 

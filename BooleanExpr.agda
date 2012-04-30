@@ -12,24 +12,46 @@ infixr 6 _:∨_
 infixr 7 _:∧_
 infix 8 :¬_
 
-data Op : Set where
- And : Op
- Or : Op
+data BinOp : Set where
+ And : BinOp
+ Or : BinOp
 
-bin : Op → Carrier → Carrier → Carrier
+bin : BinOp → Carrier → Carrier → Carrier
 bin And = _∧_
 bin Or = _∨_
 
+data Op : Set where
+  :constant : Bool → Op
+  :unary : Bool → Op
+  :binary : BinOp → Op
+
+open import Data.Nat
+
+InputsCount : Op → ℕ
+InputsCount (:constant _) = 0
+InputsCount (:unary _) = 1
+InputsCount (:binary _) = 2
+
+Inputs : Op → Set → Set
+Inputs op A = Fin (InputsCount op) → A
+
 data Expr (B : Set) : Set where
-  :bin : (op : Op) → (a b : Expr B) → Expr B
-  :¬_ : (a : Expr B) → Expr B
-  :const : Bool → Expr B
+  :op : (op : Op) → Inputs op (Expr B) → Expr B
   var : (x : B) → Expr B
+
+:¬_ : ∀ {A} → Expr A → Expr A
+:¬_ x = :op (:unary false) (λ _ → x)
+
+:bin : ∀ {A} → BinOp → Expr A → Expr A → Expr A
+:bin op a b = :op (:binary op) (λ {zero → a; (suc zero) → b; (suc (suc ()))})
 
 _:∧_ : ∀ {A : Set} → Expr A → Expr A → Expr A
 _:∧_ = :bin And
 _:∨_ : ∀ {A : Set} → Expr A → Expr A → Expr A
 _:∨_ = :bin Or
+
+:const : ∀ {A : Set} → Bool → Expr A
+:const c = :op (:constant c) (λ ())
 
 :⊤ : ∀ {A : Set} → Expr A
 :⊤ = :const true
@@ -40,10 +62,17 @@ const : Bool → Carrier
 const true = ⊤
 const false = ⊥
 
+lit : Bool → Carrier → Carrier
+lit true x = x
+lit false x = ¬ x
+
+apply : (op : Op) → (inputs : Inputs op Carrier) → Carrier
+apply (:constant y) _ = const y
+apply (:unary y) inps = lit y (inps zero)
+apply (:binary op) inps = bin op (inps zero) (inps (suc zero))
+
 ⟦_⟧₀ : ∀ {A} → Expr A → (A → Carrier) → Carrier
-⟦_⟧₀ (:bin op a b) vars = bin op (⟦ a ⟧₀ vars) (⟦ b ⟧₀ vars)
-⟦_⟧₀ (:¬ a) vars = ¬ ⟦ a ⟧₀ vars
-⟦ :const c ⟧₀ _ = const c
+⟦_⟧₀ (:op op rec) vars = apply op (λ i → ⟦ rec i ⟧₀ vars)
 ⟦_⟧₀ (var y) vars = vars y
 
 ⟦_⟧ : ∀ {n} → Expr (Fin n) → Vec Carrier n → Carrier
