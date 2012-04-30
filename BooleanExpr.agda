@@ -21,9 +21,9 @@ bin And = _∧_
 bin Or = _∨_
 
 data Op : Set where
-  :constant : Bool → Op
-  :unary : Bool → Op
-  :binary : BinOp → Op
+  :constant : (c : Bool) → Op
+  :unary : (neg : Bool) → Op
+  :binary : (op : BinOp) → Op
 
 open import Data.Nat
 
@@ -101,3 +101,16 @@ bin-idempotent Or = ∨-idempotent
 bin-cong : ∀ op {a b c d} → a ≈ b → c ≈ d → bin op a c ≈ bin op b d
 bin-cong And ab cd = ∧-cong ab cd
 bin-cong Or ab cd = ∨-cong ab cd
+
+lit-cong : ∀ (c : Bool) → {a b : Carrier} → a ≈ b → lit c a ≈ lit c b
+lit-cong true eq = eq
+lit-cong false eq = ¬-cong eq
+
+apply-cong : ∀ (oper : Op)
+  → {inp₁ : Inputs oper Carrier}
+  → {inp₂ : Inputs oper Carrier}
+  → (∀ i → inp₁ i ≈ inp₂ i)
+  → apply oper inp₁ ≈ apply oper inp₂
+apply-cong (:constant y) eq = refl
+apply-cong (:unary c) eq = lit-cong c (eq zero) 
+apply-cong (:binary op) eq = bin-cong op (eq (# 0)) (eq (# 1))

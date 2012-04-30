@@ -100,19 +100,6 @@ tyty c (:unary true) inps = sym (trans (sym (∧-assoc _ _ _)) (∧-cong (∧-id
 tyty c (:unary false) inps = trans (trans (trans (sym (proj₁ ∨-identity _)) (∨-cong (sym (proj₂ ∧-complement _)) refl )) (sym (proj₁ ∧-∨-distrib _ _ _))) (∧-cong refl (sym (deMorgan₁ _ _)))
 tyty c (:binary op) inps = bin-tyty op c _ _
 
-lit-cong : ∀ (c : Bool) → {a b : Carrier} → a ≈ b → lit c a ≈ lit c b
-lit-cong true eq = eq
-lit-cong false eq = ¬-cong eq
-
-apply-cong : ∀ (oper : Op)
-  → {inp₁ : Inputs oper Carrier}
-  → {inp₂ : Inputs oper Carrier}
-  → (∀ i → inp₁ i ≈ inp₂ i)
-  → apply oper inp₁ ≈ apply oper inp₂
-apply-cong (:constant y) eq = refl
-apply-cong (:unary c) eq = lit-cong c (eq zero) 
-apply-cong (:binary op) eq = bin-cong op (eq (# 0)) (eq (# 1))
-
 raise-sem : ∀ {n x} (e : Expr (Fin n)) ρ →
               ⟦ e ↑ ⟧ (x ∷ ρ) ≈ ⟦ e ⟧ ρ
 raise-sem {n} {x} (:op op params) ρ = apply-cong op (λ i → raise-sem (params i) ρ)
